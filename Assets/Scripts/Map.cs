@@ -7,7 +7,7 @@ public class Map : MonoBehaviour
 {
     private const string TilesHolderName = "Tiles";
     private const string ObstaclesHolderName = "Obstacles";
-    
+
     [Header("Tile")]
     public Transform tileTransform;
 
@@ -18,16 +18,10 @@ public class Map : MonoBehaviour
     public float obstaclePercent;
 
     [Header("Map")]
-    public int width;
-    public int height;
-    [Range(0, 1)]
-    public float outlinePercent;
-    [Range(0, 100)]
-    public int emptyPercent;
-    [Range(0, 5)]
-    public int smoothTimes;
-    public int mapRandomSeed;
-    public float tileSize;
+    public Room[] rooms;
+    public int currentRoomIndex;
+
+    private Room _currentRoom;
 
     private int[,] _map;
     private List<Vector2Int> _tiles;
@@ -41,31 +35,33 @@ public class Map : MonoBehaviour
 
     public void GenerateMap()
     {
+        _currentRoom = rooms[currentRoomIndex];
+        
         Transform tilesHolderTransform = DestroyHolderByName(TilesHolderName);
         Transform obstaclesHolderTransform = DestroyHolderByName(ObstaclesHolderName);
         
-        _map = new int[width, height];
+        _map = new int[_currentRoom.width, _currentRoom.height];
         _tiles = new List<Vector2Int>();
 
         RandomFillMap();
 
-        for (int i = 0; i < smoothTimes; i++)
+        for (int i = 0; i < _currentRoom.smoothTimes; i++)
         {
             SmoothMap();
         }
         
         ProcessMap();
         
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < _currentRoom.width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < _currentRoom.height; y++)
             {
                 if (_map[x, y] == 1)
                 {
-                    if (GetNeighbourTileCount(x, y) < 7)
+                    /*if (GetNeighbourTileCount(x, y) < 7)
                     {
                         InstantiateTransform(obstacleTransform, x, y, Vector3.up * .5f, Quaternion.identity, obstaclesHolderTransform);
-                    }
+                    }*/
                     
                     continue;
                 }
@@ -86,7 +82,7 @@ public class Map : MonoBehaviour
 
         int mapObstaclePercent = (int) (_tiles.Count * obstaclePercent);
         int obstacleCount = mapObstaclePercent > _tiles.Count ? _tiles.Count : mapObstaclePercent;
-        bool[,] obstacleMap = new bool[width, height];
+        bool[,] obstacleMap = new bool[_currentRoom.width, _currentRoom.height];
         int currentObstacleCount = 0;
 
         for (int i = 0; i < obstacleCount; i++)
@@ -158,13 +154,13 @@ public class Map : MonoBehaviour
     {
         Vector3 position = Vector2IntToVector3(x, y);
         Transform newTransform = Instantiate(transform, position + outlinePosition, rotation);
-        newTransform.localScale = Vector3.one * (1 - outlinePercent) * tileSize;
+        newTransform.localScale = Vector3.one * (1 - _currentRoom.outlinePercent) * _currentRoom.tileSize;
         newTransform.parent = parent;
     }
 
     private Vector3 Vector2IntToVector3(int x, int y)
     {
-        return new Vector3(-width / 2.0f + .5f + x, 0, -height / 2.0f + .5f + y) * tileSize;
+        return new Vector3(-_currentRoom.width / 2.0f + .5f + x, 0, -_currentRoom.height / 2.0f + .5f + y) * _currentRoom.tileSize;
     }
 
     private Transform DestroyHolderByName(string holderName)
@@ -184,22 +180,22 @@ public class Map : MonoBehaviour
 
     private void RandomFillMap()
     {
-        Random random = new Random(mapRandomSeed.GetHashCode());
+        Random random = new Random(_currentRoom.mapRandomSeed.GetHashCode());
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < _currentRoom.width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < _currentRoom.height; y++)
             {
-                _map[x, y] = x == 0 || x == width - 1 || y == 0 || y == height - 1 ? 1 : random.Next(0, 100) < emptyPercent ? 1 : 0;
+                _map[x, y] = x == 0 || x == _currentRoom.width - 1 || y == 0 || y == _currentRoom.height - 1 ? 1 : random.Next(0, 100) < _currentRoom.emptyPercent ? 1 : 0;
             }
         }
     }
 
     private void SmoothMap()
     {
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < _currentRoom.width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < _currentRoom.height; y++)
             {
                 _map[x, y] = GetNeighbourTileCount(x, y) > 4 ? 1 : 0;
             }
@@ -257,7 +253,7 @@ public class Map : MonoBehaviour
     private List<Vector2Int> GetRegion(int x, int y)
     {
         List<Vector2Int> tiles = new List<Vector2Int>();
-        int[,] mapFlags = new int[width, height];
+        int[,] mapFlags = new int[_currentRoom.width, _currentRoom.height];
         int tileType = _map[x, y];
         
         Queue<Vector2Int> queue = new Queue<Vector2Int>();
@@ -294,17 +290,17 @@ public class Map : MonoBehaviour
 
     private bool IsInsideMap(int x, int y)
     {
-        return x >= 0 && x < width && y >= 0 && y < height;
+        return x >= 0 && x < _currentRoom.width && y >= 0 && y < _currentRoom.height;
     }
 
     private List<List<Vector2Int>> GetRegions(int tileType)
     {
         List<List<Vector2Int>> regions = new List<List<Vector2Int>>();
-        int[,] mapFlags = new int[width, height];
+        int[,] mapFlags = new int[_currentRoom.width, _currentRoom.height];
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < _currentRoom.width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < _currentRoom.height; y++)
             {
                 if (mapFlags[x, y] != 0 || _map[x, y] != tileType)
                 {
@@ -499,50 +495,5 @@ public class Map : MonoBehaviour
         }
 
         return line;
-    }
-
-    private class Region
-    {
-        public readonly List<Vector2Int> edgeTiles;
-        
-        private readonly List<Region> _connectedRegions;
-        
-        public Region() {}
-
-        public Region(List<Vector2Int> tiles, int[,] map)
-        {
-            _connectedRegions = new List<Region>();
-            edgeTiles = new List<Vector2Int>();
-            
-            foreach (Vector2Int tile in tiles)
-            {
-                for (int x = tile.x - 1; x <= tile.x + 1; x++)
-                {
-                    for (int y = tile.y - 1; y <= tile.y + 1; y++)
-                    {
-                        if (x != tile.x && y != tile.y || map[x, y] != 1)
-                        {
-                            continue;
-                        }
-                        
-                        if (!edgeTiles.Contains(tile))
-                        {
-                            edgeTiles.Add(tile);
-                        }
-                    }
-                }
-            }
-        }
-
-        public static void ConnectRegions(Region regionA, Region regionB)
-        {
-            regionA._connectedRegions.Add(regionB);
-            regionB._connectedRegions.Add(regionA);
-        }
-
-        public bool IsConnected(Region region)
-        {
-            return _connectedRegions.Contains(region);
-        }
     }
 }
